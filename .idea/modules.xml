@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Injectr.iml" filepath="$PROJECT_DIR$/.idea/modules/Injectr.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Injectr_main.iml" filepath="$PROJECT_DIR$/.idea/modules/Injectr_main.iml" group="Injectr" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Injectr_test.iml" filepath="$PROJECT_DIR$/.idea/modules/Injectr_test.iml" group="Injectr" />
+    </modules>
+  </component>
+</project>
