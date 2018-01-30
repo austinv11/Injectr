@@ -8,6 +8,7 @@ import org.jgrapht.alg.shortestpath.AllDirectedPaths;
 import org.jgrapht.graph.DefaultDirectedGraph;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Proxy;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.stream.Collectors;
@@ -27,13 +28,44 @@ public class AnnotationInheritanceResolver {
         JAVA_PACKAGE_PREFIXES.add("com.oracle");
     }
 
-    private final Graph<Class<? extends Annotation>, SimpleEdge<Class<? extends Annotation>>> dependencies
+    final Graph<Class<? extends Annotation>, SimpleEdge<Class<? extends Annotation>>> dependencies
             = new DefaultDirectedGraph<>(new SimpleEdgeFactory<>());
-    private final AllDirectedPaths<Class<? extends Annotation>, SimpleEdge<Class<? extends Annotation>>> pathfinder
+    final AllDirectedPaths<Class<? extends Annotation>, SimpleEdge<Class<? extends Annotation>>> pathfinder
             = new AllDirectedPaths<>(dependencies);
 
     public AnnotationInheritanceResolver() {
         dependencies.addVertex(Aspect.class);
+    }
+
+    public boolean isInstanceOf(Class<? extends Annotation> annotation1, Class<? extends Annotation> annotation2) {
+        return flattenDependencies(annotation1).contains(annotation2);
+    }
+
+    public boolean isInstanceOf(Annotation annotation1, Annotation annotation2) {
+        return isInstanceOf(annotation1.annotationType(), annotation2.annotationType());
+    }
+
+    public <T extends Annotation> T cast(Annotation annotation, Class<T> toClass) {
+        if (!isInstanceOf(annotation.annotationType(), toClass)) throw new ClassCastException(String.format("Cannot cast %s to %s!", annotation.annotationType(), toClass));
+
+        List<Set<Class<? extends Annotation>>> prioritizedDependencies = new ArrayList<>();
+        pathfinder.getAllPaths(Aspect.class, annotation.annotationType(), true, null).forEach(path -> {
+            for (int i = 0; i < path.getLength(); i++) {
+                SimpleEdge<Class<? extends Annotation>> edge = path.getEdgeList().get(i);
+                int mappedIndex = i+1;
+                while (prioritizedDependencies.size() <= mappedIndex) {
+                    prioritizedDependencies.add(new HashSet<>());
+                }
+                if (i == 0) {
+                    prioritizedDependencies.get(i).add(edge.getSource());
+                }
+                prioritizedDependencies.get(mappedIndex).add(edge.getSink());
+            }
+        });
+        Set<Class<? extends Annotation>> flattenedTypes = prioritizedDependencies.stream().flatMap(Set::stream).collect(Collectors.toSet());
+        flattenedTypes.add(annotation.annotationType());
+        AnnotationProxy proxy = new AnnotationProxy(this, annotation, toClass, prioritizedDependencies);
+        return (T) Proxy.newProxyInstance(toClass.getClassLoader(), flattenedTypes.toArray(new Class[0]), proxy);
     }
 
     public Set<SimpleEdge<Class<? extends Annotation>>> resolveDependencies(Class<? extends Annotation> annotationClass) {

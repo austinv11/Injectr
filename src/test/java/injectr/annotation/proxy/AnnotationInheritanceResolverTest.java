@@ -1,6 +1,7 @@
 package injectr.annotation.proxy;
 
 import injectr.annotation.Aspect;
+import injectr.annotation.AspectOverride;
 import org.junit.Test;
 
 import java.lang.annotation.*;
@@ -28,7 +29,7 @@ public class AnnotationInheritanceResolverTest {
     }
 
     @Test
-    public void testMulipleDependencies() {
+    public void testMultipleDependencies() {
         AnnotationInheritanceResolver resolver = new AnnotationInheritanceResolver();
         Set<Class<? extends Annotation>> deps1 = resolver.flattenDependencies(Inheriting2.class);
         Set<Class<? extends Annotation>> deps2 = resolver.flattenDependencies(Inheriting.class);
@@ -37,6 +38,35 @@ public class AnnotationInheritanceResolverTest {
         assertFalse(deps3.containsAll(Arrays.asList(Nested.class, Inheriting2.class)));
         assertFalse(deps1.contains(Inheriting.class));
         assertFalse(deps2.contains(Nested.class));
+    }
+
+    @Test
+    public void testMultipleInheritance() {
+        AnnotationInheritanceResolver resolver = new AnnotationInheritanceResolver();
+        Set<Class<? extends Annotation>> deps = resolver.flattenDependencies(Multi.class);
+        assertTrue(deps.containsAll(Arrays.asList(Inheriting.class, Inheriting2.class, Base.class, Aspect.class)));
+    }
+
+    @Test
+    public void testInstanceChecking() {
+        AnnotationInheritanceResolver resolver = new AnnotationInheritanceResolver();
+        assertTrue(resolver.isInstanceOf(Inheriting.class, Base.class));
+        assertFalse(resolver.isInstanceOf(Base.class, Inheriting.class));
+        assertFalse(resolver.isInstanceOf(Base.class, Base.class));
+    }
+
+    @Test
+    public void testProxyCasting() {
+        AnnotationInheritanceResolver resolver = new AnnotationInheritanceResolver();
+        assertEquals(Nested.class.getAnnotation(Inheriting.class).value(), "Test");
+        Nested annotation1 = AnnotationTest.class.getAnnotation(Nested.class);
+        Multi annotation2 = AnnotationTest2.class.getAnnotation(Multi.class);
+        assertEquals(annotation1.value(), "Test3");
+        Inheriting castedAnnotation1 = resolver.cast(annotation1, Inheriting.class);
+        assertEquals(castedAnnotation1.value(), "Test3");
+
+        Inheriting castedAnnotation2 = resolver.cast(annotation2, Inheriting.class);
+        assertEquals(castedAnnotation2.value(), "Test2");
     }
 
     @Aspect
@@ -50,7 +80,7 @@ public class AnnotationInheritanceResolverTest {
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.ANNOTATION_TYPE)
     @interface Inheriting {
-
+        String value();
     }
 
     @Base
@@ -60,16 +90,34 @@ public class AnnotationInheritanceResolverTest {
 
     }
 
-    @Inheriting
+    @Inheriting(value = "Test")
     @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.ANNOTATION_TYPE)
+    @Target(ElementType.TYPE)
     @interface Nested {
+        @AspectOverride String value();
+    }
+
+    @Inheriting(value = "Test2")
+    @Inheriting2
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.TYPE)
+    @interface Multi {
 
     }
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.ANNOTATION_TYPE)
     @interface BrokenBase {
+
+    }
+
+    @Nested(value = "Test3")
+    static class AnnotationTest {
+
+    }
+
+    @Multi
+    static class AnnotationTest2 {
 
     }
 }
